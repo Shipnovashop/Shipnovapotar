@@ -1,0 +1,1 @@
+# Admin web placeholder\nNext.js implementation starts after API contracts are stable.\n
