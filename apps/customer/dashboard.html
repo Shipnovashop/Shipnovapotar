@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Customer Dashboard | ShipNovaPortal</title><link rel="stylesheet" href="../shared/styles.css"></head>
+<body>
+<header class="bar"><div class="wrap bar-in"><div class="brand">ShipNovaPortal</div><div class="actions"><button class="secondary" onclick="SNP.logout()">Logout</button></div></div></header>
+<main class="wrap dashboard">
+<section class="card hero">
+<span class="pill">Customer</span><h1 id="welcome">Welcome</h1><p class="muted">Create a delivery booking and track your requests.</p>
+<div class="grid"><div class="card stat"><span class="muted">Account status</span><b id="status">—</b></div><div class="card stat"><span class="muted">Phone</span><b id="phone">—</b></div><div class="card stat"><span class="muted">Email</span><b id="email">—</b></div></div>
+</section>
+<section class="card hero" style="margin-top:20px">
+<h2>Create Delivery Booking</h2>
+<form id="bookingForm" class="form">
+<div class="grid">
+<div class="field"><label>Pickup address</label><input id="pickupAddress" required placeholder="Pickup address"></div>
+<div class="field"><label>Pickup latitude</label><input id="pickupLat" type="number" step="any" min="-90" max="90" required placeholder="e.g. 18.5204"></div>
+<div class="field"><label>Pickup longitude</label><input id="pickupLng" type="number" step="any" min="-180" max="180" required placeholder="e.g. 73.8567"></div>
+<div class="field"><label>Drop address</label><input id="dropAddress" required placeholder="Drop address"></div>
+<div class="field"><label>Drop latitude</label><input id="dropLat" type="number" step="any" min="-90" max="90" required></div>
+<div class="field"><label>Drop longitude</label><input id="dropLng" type="number" step="any" min="-180" max="180" required></div>
+<div class="field"><label>Package description</label><input id="packageDescription" required maxlength="500" placeholder="Documents / parcel / box"></div>
+<div class="field"><label>Weight (kg)</label><input id="weightKg" type="number" step="0.01" min="0" max="1000" value="1"></div>
+<div class="field"><label>Vehicle</label><select id="vehicleType"><option value="bike">Bike</option><option value="auto">Auto</option><option value="mini_truck">Mini Truck</option><option value="truck">Truck</option></select></div>
+</div>
+<div class="field"><label>Customer note</label><input id="customerNote" maxlength="1000" placeholder="Optional delivery instructions"></div>
+<div id="bookingMsg" class="msg"></div><button class="primary" type="submit">Create Booking</button>
+</form>
+</section>
+<section class="card hero" style="margin-top:20px"><div style="display:flex;justify-content:space-between;gap:12px;align-items:center"><h2>My Bookings</h2><button class="secondary" onclick="loadBookings()">Refresh</button></div><div id="bookings" class="note">Loading...</div></section>
+</main>
+<script src="../shared/auth.js"></script>
+<script>
+const $=id=>document.getElementById(id);
+function msg(text,ok=false){$('bookingMsg').textContent=text;$('bookingMsg').className='msg show '+(ok?'ok':'error')}
+async function loadBookings(){try{const d=await SNP.request('/api/v1/bookings');if(!d.bookings.length){$('bookings').textContent='No bookings yet.';return}$('bookings').innerHTML=d.bookings.map(b=>`<div class="note" style="margin-top:10px"><b>${SNP.esc(b.bookingNumber)}</b> · ${SNP.esc(b.status)}<br>₹${Number(b.totalFare).toFixed(2)} · ${Number(b.distanceKm).toFixed(2)} km · ${SNP.esc(b.vehicleType)}<br><span class="muted">${SNP.esc(b.pickupAddress)} → ${SNP.esc(b.dropAddress)}</span><br><div class="actions" style="margin-top:8px"><button class="secondary" onclick="trackBooking('${b.id}')">Track</button>${['requested','searching_driver','driver_assigned'].includes(b.status)?`<button class="primary" onclick="payBooking('${b.id}')">Pay</button>`:''}${['requested','searching_driver','driver_assigned'].includes(b.status)?`<button class="danger" onclick="cancelBooking('${b.id}')">Cancel</button>`:''}</div></div>`).join('')}catch(e){$('bookings').textContent=e.message}}
+function trackBooking(id){location.href='tracking.html?booking='+encodeURIComponent(id)}
+function payBooking(id){location.href='payment.html?booking='+encodeURIComponent(id)}
+async function cancelBooking(id){if(!confirm('Cancel this booking?'))return;try{await SNP.request('/api/v1/bookings/'+id+'/cancel',{method:'POST'});await loadBookings()}catch(e){alert(e.message)}}
+$('bookingForm').addEventListener('submit',async e=>{e.preventDefault();msg('Creating booking...',true);try{const d=await SNP.request('/api/v1/bookings',{method:'POST',body:JSON.stringify({pickupAddress:$('pickupAddress').value,pickupLat:$('pickupLat').value,pickupLng:$('pickupLng').value,dropAddress:$('dropAddress').value,dropLat:$('dropLat').value,dropLng:$('dropLng').value,packageDescription:$('packageDescription').value,weightKg:$('weightKg').value,vehicleType:$('vehicleType').value,customerNote:$('customerNote').value})});msg(`Booking ${d.booking.bookingNumber} created. Fare: ₹${Number(d.booking.totalFare).toFixed(2)}`,true);await loadBookings()}catch(e){msg(e.message)}});
+(async()=>{try{const d=await SNP.request('/api/v1/auth/me');if(d.user.role!=='customer')throw new Error();$('welcome').textContent='Welcome, '+(d.user.fullName||'Customer');$('status').textContent=d.user.status;$('phone').textContent=d.user.phone;$('email').textContent=d.user.email||'Not added';await loadBookings()}catch(e){location.href='index.html'}})();
+</script>
+</body></html>
