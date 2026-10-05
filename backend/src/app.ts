@@ -11,7 +11,7 @@ import { registerDriverRoutes } from "./driver.js";
 import { registerDeliveryRoutes } from "./delivery.js";
 import { registerPaymentRoutes } from "./payments.js";
 import { registerNotificationRoutes } from "./notifications.js";
-import rawBody from "@fastify/raw-body";
+import rawBody from "fastify-raw-body";
 import { ZodError } from "zod";
 
 export async function buildApp() {
@@ -22,7 +22,11 @@ export async function buildApp() {
     credentials: true,
   });
 
-  await app.register(rawBody, { field: "rawBody", global: false, runFirst: true });
+  await app.register(rawBody, {
+    field: "rawBody",
+    global: false,
+    runFirst: true,
+  });
 
   await registerAuth(app);
   await registerAdminRoutes(app);
@@ -34,15 +38,25 @@ export async function buildApp() {
   await registerNotificationRoutes(app);
 
   app.get("/health", async (_request, reply) => {
-    const checks = { database: false, redis: false };
+    const checks = {
+      database: false,
+      redis: false,
+    };
 
-    try { checks.database = await checkDatabase(); }
-    catch (error) { app.log.error(error, "Database health check failed"); }
+    try {
+      checks.database = await checkDatabase();
+    } catch (error) {
+      app.log.error(error, "Database health check failed");
+    }
 
-    try { checks.redis = await checkRedis(); }
-    catch (error) { app.log.error(error, "Redis health check failed"); }
+    try {
+      checks.redis = await checkRedis();
+    } catch (error) {
+      app.log.error(error, "Redis health check failed");
+    }
 
     const healthy = checks.database && checks.redis;
+
     return reply.code(healthy ? 200 : 503).send({
       success: healthy,
       service: "ShipNovaPortal API",
@@ -59,14 +73,35 @@ export async function buildApp() {
 
   app.setErrorHandler((error, _request, reply) => {
     app.log.error(error);
+
     if (error instanceof ZodError) {
-      return reply.code(400).send({ success: false, message: "Invalid request data.", issues: error.issues });
+      return reply.code(400).send({
+        success: false,
+        message: "Invalid request data.",
+        issues: error.issues,
+      });
     }
-    return reply.code(error.statusCode ?? 500).send({
-      success: false,
-      message: error.statusCode && error.statusCode < 500
+
+    const statusCode =
+      typeof error === "object" &&
+      error !== null &&
+      "statusCode" in error &&
+      typeof error.statusCode === "number"
+        ? error.statusCode
+        : 500;
+
+    const message =
+      statusCode < 500 &&
+      typeof error === "object" &&
+      error !== null &&
+      "message" in error &&
+      typeof error.message === "string"
         ? error.message
-        : "Internal server error.",
+        : "Internal server error.";
+
+    return reply.code(statusCode).send({
+      success: false,
+      message,
     });
   });
 
