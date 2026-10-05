@@ -19,7 +19,7 @@
     "ioredis": "^5.7.0",
     "pg": "^8.16.0",
     "razorpay": "^2.9.6",
-    "@fastify/raw-body": "^5.0.0"
+    "fastify-raw-body": "^5.0.0"
   },
   "devDependencies": {
     "@types/node": "^24.0.0",
